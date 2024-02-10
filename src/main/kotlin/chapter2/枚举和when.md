@@ -151,6 +151,38 @@ Sum存储了Expr类型的实参left和right的引用。在这个小例子中，�
 val n = e as Num
 ```
 
+## 重构：用when代替if
+`Kotlin`和`Java`中的`if`不同，在`Kotlin`中：`if(a>b) a else b`和`a>b ? a: b`效果一样。`Kotlin`没有三元运算符，因为`if`表达式有返回值，这一点和`Java`不同。这意味着可以用表达式体语法重写`eval`函数，去掉`return`语句和花括号，使用`if`表达式作为函数体。
+
+```kotlin
+fun eval(e:Expr):Int{
+    if (e is Num){
+        // 显式地转换成类型Num是多余的
+        // val n = e as Num
+        e.value
+    }
+    if (e is Sum){
+        // 变量e被智能地转换了类型
+        eval(e.right) + eval(e.left)
+    }
+    throw IllegalArgumentException("Unknown expression")
+}
+```
+
+如果`if`分支中只有一个表达式，花括号是可以省略的。如果`if`分支是一个代码块，代码块中的最后一个表达式会被作为结果返回。
+```kotlin
+fun evalWithWhen(e:Expr):Int  =
+    when (e) {
+        is Num ->
+            e.value
+        is Sum ->
+            evalWithWhen(e.right) + evalWithWhen(e.left)
+        else ->
+            throw IllegalArgumentException("Unknown expression")
+    }
+```
+
+
 
 
 

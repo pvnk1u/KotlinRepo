@@ -11,11 +11,23 @@ class Num(val value:Int) : Expr
 class Sum(val left:Expr,val right:Expr) : Expr
 
 
+fun evalWithWhen(e:Expr):Int  =
+    when (e) {
+        is Num ->
+            e.value
+        is Sum ->
+            evalWithWhen(e.right) + evalWithWhen(e.left)
+        else ->
+            throw IllegalArgumentException("Unknown expression")
+    }
+
+
+
 fun eval(e:Expr):Int{
     if (e is Num){
         // 显式地转换成类型Num是多余的
-        val n = e as Num
-        return n.value
+        // val n = e as Num
+       return e.value
     }
     if (e is Sum){
         // 变量e被智能地转换了类型
@@ -26,4 +38,5 @@ fun eval(e:Expr):Int{
 
 fun main(args: Array<String>){
     println(eval(Sum(Sum(Num(1),Num(2)),Num(4))))
+    println(evalWithWhen(Sum(Sum(Num(1),Num(2)),Num(4))))
 }
