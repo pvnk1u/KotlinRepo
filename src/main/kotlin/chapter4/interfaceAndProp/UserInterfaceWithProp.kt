@@ -1,4 +1,4 @@
-package chapter4.constrcutor
+package chapter4.interfaceAndProp
 
 interface UserInterfaceWithProp {
 
