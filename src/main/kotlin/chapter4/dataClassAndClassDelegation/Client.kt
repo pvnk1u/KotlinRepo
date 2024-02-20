@@ -14,6 +14,10 @@ class Client(val name:String,val postalCode: Int) {
 
     override fun hashCode(): Int = name.hashCode() * 31 + postalCode
 
+    fun copy(name:String = this.name,
+             postalCode:Int = this.postalCode) =
+        Client(name,postalCode)
+
 }
 
 fun main(args:Array<String>){
