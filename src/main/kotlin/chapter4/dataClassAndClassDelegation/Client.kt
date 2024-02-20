@@ -11,6 +11,9 @@ class Client(val name:String,val postalCode: Int) {
             return false
         return name == other.name && postalCode == other.postalCode
     }
+
+    override fun hashCode(): Int = name.hashCode() * 31 + postalCode
+
 }
 
 fun main(args:Array<String>){
@@ -19,4 +22,7 @@ fun main(args:Array<String>){
     val client2 = Client("Alice",342562)
     println(client1 == client2)
     // 重写equals方法前是false
+    val processed = hashSetOf(Client("Alice",342562))
+    println(processed.contains(Client("Alice",342562)))
+    // 重写hashCode方法前是false，重写后是true
 }
