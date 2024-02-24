@@ -21,4 +21,7 @@ fun main(args: Array<String>){
     val people = listOf(LambdaDataClassPerson("Alice",29),LambdaDataClassPerson("Bob",31))
     findTheOldest(people)
     // LambdaDataClassPerson(name=Bob, age=31)
+
+    println(people.maxBy { it.age })
+    // LambdaDataClassPerson(name=Bob, age=31)
 }
