@@ -468,3 +468,47 @@ println(numbers.mapValues{it.value.toUpperCase()})
 
 
 
+## all、any、count和find：对集合应用判断式
+
+另一种常见的任务是检查集合中的所有元素是否都符合某个条件（或者它的变种，是否存在符合的元素）。`Kotlin`中，它们是通过`all`和`any`函数表达的。`count`函数检查有多少元素满足判断式，而`find`函数返回第一个符合条件的元素。
+
+
+
+为了演示这些函数，定义一个判断式`canBeInClub27`，来检查一个人是否还没有到28岁：
+
+```kotlin
+val canBeInClub27 = {p:Person -> p.age <= 27}
+```
+
+
+
+使用这些函数：
+
+```kotlin
+data class Person(val name:String,val age:Int) {
+
+}
+
+fun main(args: Array<String>){
+    val canBeInClub27 = {p:Person -> p.age <= 27}
+    val people = listOf(Person("Alice",27),Person("Bob",31))
+    println(people.all(canBeInClub27))
+    // false
+    println(people.any(canBeInClub27))
+    // true
+    println(people.count(canBeInClub27))
+    // 1
+    // 如果有多个匹配的元素就返回其中第一个元素，或者返回null，还有一个同义方法firstOrNull
+    println(people.find(canBeInClub27))
+    // Person(name=Alice,age=27)
+
+    val list = listOf(1,2,3)
+    // !否定不明显，这种情况下最好使用any
+    println(!list.all { it == 3 })
+    // true
+    // lambda参数中的条件要取反
+    println(list.any{it != 3})
+    // true
+}
+```
+
