@@ -312,3 +312,159 @@ fun main(args:Array<String>){
 val getAge = Person::age
 ```
 
+**这种表达式称为成员引用，它提供了简明语法，来创建一个调用单个方法或者访问单个属性的函数值。双冒号把类名称与要引用的成员（一个方法或者一个属性）名称隔开。**
+
+
+
+这是一个更简洁的`lambda`表达式，它做同样的事情：
+
+```kotlin
+val getAge = {person : Person -> person.age}
+```
+
+注意，不管引用的是函数还是属性，都不要在成员引用的名称后面加括号。
+
+
+
+成员引用和调用该函数的`lambda`具有一样的类型，所以可以互换使用：
+
+```kotlin
+people.maxBy(Person::age)
+```
+
+还可以引用顶层函数（不是类的成员）：
+
+```kotlin
+fun salute() = println("Salute!")
+// 引用顶层函数
+run(::salute)
+// Salute!
+```
+
+这种情况下，省略了类名称，直接以`::`开头。成员引用`::salute`被当作实参传递给库函数`run`，它会调用相应的函数。
+
+
+
+如果`lambda`要委托给一个接收多个参数的函数，提供成员引用代替它将会非常方便：
+
+```kotlin
+// 这个lambda委托给sendEmail函数
+val action = {person: Person,message:String ->
+			sendEmail(person,message)}
+
+// 可以用成员引用代替
+val nextAction = ::sendEmail
+```
+
+可以用构造方法引用存储或者延期执行创建类实例的动作。构造方法引用的形式是在双冒号后指定类名称：
+
+```kotlin
+data class LambdaConstructor(val name:String,val age:Int) {
+}
+
+fun main(args:Array<String>){
+    val createObj = ::LambdaConstructor
+    val p = createObj("Alice",29)
+    println(p)
+}
+```
+
+还可以用同样的方式引用扩展函数：
+
+```kotlin
+fun Person.isAdult() = age >= 21
+val predicate = Person::isAdult
+```
+
+尽管`isAdult`不是`Person`类的成员，还是可以通过引用访问它，这和访问实例的成员没什么两样：`person.isAdult()`。
+
+
+
+# 集合的函数式API
+
+函数式编程风格在操作集合时提供了很多优势。大多数任务都可以通过库函数完成来简化代码。
+
+
+
+## 基础：filter和map
+
+`filter`和`map`函数形成了集合操作的基础，很多集合操作都是借助它们来表达的。
+
+
+
+每个函数都会有两个例子，一个使用数字，另一个使用熟悉的`Person`类：
+
+```kotlin
+data class Person(val name:String,val age:Int)
+```
+
+`filter`函数遍历集合并选出应用给定`lambda`后会返回`true`的那些元素：
+
+```kotlin
+val list = listOf(1,2,3,4)
+println(list.filter{it % 2 == 0})
+// [2,4]
+```
+
+上面的结果是一个新的集合，它只包含输入集合中那些满足判断式的元素。
+
+
+
+如果想留下超过30岁的人，可以这样：
+
+```kotlin
+val people = listOf(Person("Alice",29),Person("Bob",31))
+println(people.filter{it.age > 30})
+// [Person(name=Bob,age=31)]
+```
+
+`filter`函数可以从集合中移除不想要的元素，但是它并不会改变这些元素。元素的变换是`map`的用武之地。
+
+
+
+`map`函数对集合中的每一个元素应用给定的函数并把结果收集到一个新集合。可以把数字列表变换成它们平方的列表，比如：
+
+```kotlin
+val list = listOf(1,2,3,4)
+println(list.map{it * it})
+// [1,4,9,16]
+```
+
+结果是一个新集合，包含的元素个数不变，但是每个元素根据给定的判断式做了变换。
+
+
+
+如果想打印的只是一个名字列表，而不是人的完整信息列表，可以使用`map`来变换列表：
+
+```kotlin
+val people = listOf(Person("Alice",29),Person("Bob",31))
+println(people.map{it.name})
+// [Alice,Bob]
+```
+
+注意，这个例子可以用成员引用漂亮地重写：
+
+```kotlin
+people.map(Person::name)
+```
+
+可以轻松地把多次这样的调用链接起来。例如，打印出年龄超过30岁的人的名字：
+
+```kotlin
+people.filter{it.age >30 }.map(Person::name)
+```
+
+
+
+还可以对`map`应用过滤和变换函数：
+
+```kotlin
+val numbers = mapOf(0 to "zero",1 to "one")
+println(numbers.mapValues{it.value.toUpperCase()})
+// {0=zero,1=one}
+```
+
+键和值分别由各自的函数来处理。`filterKeys`和`mapKeys`过滤和变换`map`的键，而另外的`filterValues`和`mapValues`过滤和变换对应的值。
+
+
+
