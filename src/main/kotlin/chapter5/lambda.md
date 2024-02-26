@@ -512,3 +512,30 @@ fun main(args: Array<String>){
 }
 ```
 
+
+
+## groupBy：把列表转换成分组的map
+
+假设需要把所有元素按照不同的特征划分成不同的分组。例如，想把人按年龄分组，相同年龄的人放在一组。把这个特征直接当作参数传递十分方便。`groupBy`函数可以做到这一点：
+
+```kotlin
+val people = listOf(Person("Alice",31),
+				Person("Bob",29),Person("Carol",31))
+println(people.groupBy{it.age})
+// {31=[Person(name=Alice, age=31), Person(name=Carol, age=31)], 29=[Person(name=Bob, age=29)]}
+```
+
+每一个分组都是存储在一个列表中，结果的类型就是`Map<Int,List<Person>>`。可以使用像`mapKeys`和`mapValues`这样的函数对这个`map`做进一步的修改。
+
+
+
+再来看另外一个例子，使用成员引用把字符串按照首字母分组：
+
+```kotlin
+val list = listOf("a","ab","b")
+println(list.groupBy(String::first))
+// {a={a,ab},b={b}}
+```
+
+注意，这里`first`并不是`String`类的成员，而是一个扩展。然而，可以把它当作成员引用访问。
+
