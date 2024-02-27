@@ -539,3 +539,128 @@ println(list.groupBy(String::first))
 
 注意，这里`first`并不是`String`类的成员，而是一个扩展。然而，可以把它当作成员引用访问。
 
+
+
+## floatMap和flatten：处理嵌套集合中的元素
+
+假设有一堆数据，使用`Book`类表示：
+
+```kotlin
+class Book(val title:String,val authors: List<String>) {
+}
+```
+
+每本书都可能有一个或者多个作者，可以统计出图书馆中的所有作者的`set`：
+
+```kotlin
+// 统计出所有的作者
+println(books.flatMap { it.authors }.toSet())
+```
+
+`flatMap`函数做了两件事情：首先根据作为实参给定的函数对集合中的每个元素做变换（或者说映射），然后把多个列表合并（或者说平铺）成一个列表。下面的例子很好地阐明了这个概念：
+
+```kotlin
+val strings = listOf("abc","def")
+println(strings.flatMap { it.toList() })
+// [a,b,c,d,e,f]
+```
+
+字符串上的`toList`函数把它转换成字符列表。如果和`toList`一起使用的是`map`函数，会得到一个字符列表的列表，`flatMap`函数还会执行后面的步骤，并返回一个包含所有元素(字符)的列表。
+
+
+
+回到书籍作者的例子：
+
+```kotlin
+fun main(args:Array<String>){
+    val books = listOf(Book("Thursday Next", listOf("Jasper Fforde")),
+                        Book("Mort", listOf("Terry Pratchett")),
+                        Book("Good omens", listOf("Terry Pratchett",
+                                                        "Neil Gaiman")))
+
+    // 统计出所有的作者
+    println(books.flatMap { it.authors }.toSet())
+    // [Jasper Fforde, Terry Pratchett, Neil Gaiman]
+}
+```
+
+每一本书都可能有多位作者，属性`book.authors`存储了每本书籍的作者集合。`flatMap`函数把所有书籍的作者合并成了一个扁平的列表。`toSet`调用移除了结果集合中的所有重复元素。
+
+
+
+当卡壳在元素集合的集合不得不合并成一个的时候，可能会想起`flatMap`来。注意，如果不需要做任何变换，只是需要平铺一个集合，可以使用`flatten`函数：`listOfLists.flatten()`。
+
+
+
+# 惰性集合操作：序列
+
+前面已经看到了许多链式集合函数调用的例子，比如`map`和`filter`。这些函数会及早地创建中间集合，也就是说每一步的中间结果都被存储到一个临时列表。序列则提供了这些操作的另一种选择，可以避免创建这些临时中间对象。
+
+
+
+先来看个例子：
+
+```kotlin
+people.map(Person::name).filter{it.startsWith("A")}
+```
+
+`filter`和`map`都会返回一个列表。**这意味着上面例子中的链式调用会创建两个列表：一个保存`filter`函数的结果，另一个保存`map`函数的结果。如果源列表只有两个元素，这不是什么问题。但是如果有一百万个元素，这种链式调用就会变得十分低效。**
+
+
+
+为了提高效率，可以把操作变成使用序列，而不是直接使用集合：
+
+```kotlin
+// 把初始集合转换成序列
+people.asSequence()
+	.map(Person::name)
+	.filter{it.startsWith("A")
+    // 把结果序列转换回列表
+	.toList()}
+```
+
+应用这次操作后的结果和前面的例子一模一样，但是第二个例子没有创建任何用于存储元素的中间集合，所以元素数量巨大的情况下性能将显著提升。
+
+
+
+`Kotlin`惰性集合操作的入口就是`Sequence`接口。这个接口表示的就是一个可以逐个列举元素的元素序列。`Sequence`只提供了一个方法，`iterator`，用来从序列中获取值。
+
+
+
+`Sequence`接口的强大之处在于其操作的实现方式。序列中的元素求值是惰性的。因此，可以使用序列更高效地对集合元素执行链式操作，而不需要创建额外的集合来保存过程中产生地中间结果。
+
+可以调用扩展函数`asSequence`把任意集合转换成序列，调用`toList`来做反向的转换。
+
+
+
+### 执行序列操作：中间和末端操作
+
+**序列操作分为两类：中间的和末端的。一次中间操作返回的是另一个序列，这个新序列知道如何变换原始序列中的元素。而一次末端操作返回的是另一个结果，这个结果可能是集合、元素、数字，或者其他从初始集合的变换序列中获取的任意对象。**
+
+
+
+中间操作始终是惰性的。先看下面这个缺少了末端操作的例子：
+
+```kotlin
+fun main(args:Array<String>){
+    listOf(1,2,3,4).asSequence()
+        .map { println("map($it)");it* it }
+        .filter { print("filter($it)");it % 2 == 0 }
+}
+```
+
+**执行这段代码并不会在控制台上输出任何内容。这意味着`map`和`filter`变换被延期了，它们只有在获取结果的时候才会被应用（即末端操作被调用的时候）：**
+
+```kotlin
+fun main(args:Array<String>){
+    listOf(1,2,3,4).asSequence()
+        .map { println("map($it)");it* it }
+        .filter { print("filter($it)");it % 2 == 0 }
+        .toList()
+}
+```
+
+**末端操作触发执行了所有的延期计算。**
+
+
+
