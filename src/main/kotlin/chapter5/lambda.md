@@ -766,3 +766,50 @@ fun alphabetUsingWith():String{
 
 ```
 
+`with`结构看起来像是一种特殊的语法结构，但它实际上是一个接收两个参数的函数：这个例子中两个参数分别是`stringBuilder`和一个`lambda`。这里利用了把`lambda`放在括号外的约定，这样整个调用看起来就像是内建的语言功能。当然可以选择把它写成`with(stringBuilder,{...})`，但可读性差很多。
+
+
+
+`with`函数把它的第一个参数转换成作为第二个参数传给它的`lambda`的接收者。可以显式地通过`this`引用来访问这个接收者。或者，按照惯例，可以省略`this`引用，不用任何限定符直接访问这个值的方法和属性。
+
+
+
+进一步重构初始的`alphabet`函数，去掉额外的`stringBuilder`变量。
+
+```kotlin
+fun alphabetUsingWith2() = with(StringBuilder()){
+    for (letter in 'A'..'Z'){
+        // 通过显式地this来调用接收者值的方法
+        append(letter)
+    }
+    append("\nNow I know the alphabet!")
+    // 从lambda返回值
+    toString()
+}
+```
+
+现在这个函数只返回一个表达式，所以使用表达式函数体语法重写了它。可以创建一个新的`StringBuilder`实例直接当作实参传给这个函数，然后在`lambda`中不需要显式的`this`就可以引用到这个实例。
+
+
+
+`with`返回的值是执行`lambda`代码的结果，该结果就是`lambda`中的最后一个表达式（的值）。但有时候想返回的是接收者对象，而不是执行`lambda`的结果。这时`apply`库函数就派上用场了。
+
+
+
+## apply函数
+
+`apply`函数几乎和`with`函数一模一样，唯一的区别是`applu`始终会返回作为实参传递给它的对象（换句话说，接收者对象）。再一次重构`alphabet`函数，这一次用的是`apply`。
+
+```kotlin
+/**
+ * 使用apply重构
+ */
+fun alphabetUsingApply() = StringBuilder().apply {
+    for (letter in 'A'..'Z'){
+        // 通过显式地this来调用接收者值的方法
+        append(letter)
+    }
+    append("\nNow I know the alphabet!")
+}.toString()
+```
+

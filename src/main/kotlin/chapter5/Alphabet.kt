@@ -26,6 +26,31 @@ fun alphabetUsingWith():String{
     }
 }
 
+
+/**
+ * 再次重构
+ */
+fun alphabetUsingWith2() = with(StringBuilder()){
+    for (letter in 'A'..'Z'){
+        // 通过显式地this来调用接收者值的方法
+        append(letter)
+    }
+    append("\nNow I know the alphabet!")
+    // 从lambda返回值
+    toString()
+}
+
+/**
+ * 使用apply重构
+ */
+fun alphabetUsingApply() = StringBuilder().apply {
+    for (letter in 'A'..'Z'){
+        // 通过显式地this来调用接收者值的方法
+        append(letter)
+    }
+    append("\nNow I know the alphabet!")
+}.toString()
+
 fun main(args:Array<String>){
     println(alphabet())
     /*
