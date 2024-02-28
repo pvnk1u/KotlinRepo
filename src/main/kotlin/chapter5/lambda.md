@@ -633,7 +633,7 @@ people.asSequence()
 
 
 
-### 执行序列操作：中间和末端操作
+## 执行序列操作：中间和末端操作
 
 **序列操作分为两类：中间的和末端的。一次中间操作返回的是另一个序列，这个新序列知道如何变换原始序列中的元素。而一次末端操作返回的是另一个结果，这个结果可能是集合、元素、数字，或者其他从初始集合的变换序列中获取的任意对象。**
 
@@ -663,4 +663,106 @@ fun main(args:Array<String>){
 **末端操作触发执行了所有的延期计算。**
 
 
+
+这个例子中另外一件值得注意的重要事情是计算执行的顺序。一个笨方法是先在每个元素上调用`map`函数，然后在结果序列的每个元素上再调用`filter`函数。`map`和`filter`对集合就是这样做的，而序列不一样。对序列来说，所有操作是按顺序应用在每一个元素上：处理完第一个元素（先映射再过滤），然后完成第二个元素的处理，以此类推。
+
+
+
+这种方法意味着部分元素根本不会发生任何变换，如果在轮到它们之前就已经取得了结果。来看一个`map`和`find`的例子。首先把一个数字映射成它的平方，然后找到第一个比数字3大的条目：
+
+```kotlin
+println(listOf(1,2,3,4).asSequence()
+						.map{it * it}.find{it > 3})
+```
+
+如果同样的操作被应用在集合而不是序列上时，那么`map`的结果首先被求出来，即变换初始集合中的所有元素。第二步，中间集合满足判断式的一个元素会被找出来。而对于序列来说，惰性方法意味着可以跳过处理部分元素。这两种方式的区别在于：一种是及早求值（使用集合），一种是惰性求值（使用序列）。
+
+
+
+当使用集合的时候，列表被变换成了另一个列表，所以`map`变换应用到每一个元素上，包括了数字3和4。然后，第一个满足判断式的元素被找到了：数字2的平方。
+
+
+
+第二种情况，`find`调用一开始就逐个地处理元素。从原始序列中取一个数字，用`map`变换它，然后再检查它是否满足传给`find`的判断式。当进行到数字2时，发现它的平方已经比数字3大，就把它作为`find`操作结果返回了。不再需要继续检查数字3和4，因为已经找到了结果。
+
+
+
+使用集合函数式API时应该注意这个特性，提高代码性能。
+
+
+
+## 创建序列
+
+前面的例子都是使用同一个方法创建序列：在集合上调用`asSequence()`。另一种可能性是使用`generateSequence`函数。给定序列中的前一个元素，这个函数会计算出下一个元素。下面的例子就是如何使用`generateSequence`计算100以内所有自然数之和：
+
+```kotlin
+fun main(args:Array<String>){
+    val natureNumbers = generateSequence(0) { it + 1 }
+    val numbersTo100 = natureNumbers.takeWhile { it <= 100 }
+    println(numbersTo100.sum())
+}
+```
+
+
+
+这个例子中的`natureNumbers`和`numbersTo100`都是有延期操作的序列。这些序列中的实际数字直到调用末端操作（这里是sum）的时候才会求值。
+
+
+
+# 带接收者的lambda：with与apply
+
+在`kotlin`的`lambda`函数体内可以调用一个不同对象的方法，而且无须借助任何额外限定符；这种能力在`Java`中是找不到的。这样的`lambda`叫作带接收者的`lambda`。
+
+
+
+## with函数
+
+很多语言都有这样的语句，可以用它对同一个对象执行多次操作，而不需要反复把对象的名称写出来。`Kotlin`也不例外，但它提供的是一个叫`with`的库函数，而不是某种特殊的语言结构。
+
+
+
+要理解这种用法，先看看下面的例子：
+
+```kotlin
+fun alphabet():String{
+    val result = StringBuilder()
+    for (letter in 'A'..'Z'){
+        result.append(letter)
+    }
+    result.append("\nNow I know the alphabet!")
+    return result.toString()
+}
+
+fun main(args:Array<String>){
+    println(alphabet())
+    /*
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ
+    Now I know the alphabet!
+    * */
+}
+```
+
+
+
+下面的例子展示了如何使用`with`来重写这段代码：
+
+```kotlin
+/**
+ * 使用with重构
+ */
+fun alphabetUsingWith():String{
+    val result = StringBuilder()
+    // 指定接收者的值，代码块中会调用它的方法
+    return with(result){
+        for (letter in 'A'..'Z'){
+            // 通过显式地this来调用接收者值的方法
+            this.append(letter)
+        }
+        append("\nNow I know the alphabet!")
+        // 从lambda返回值
+        this.toString()
+    }
+}
+
+```
 
