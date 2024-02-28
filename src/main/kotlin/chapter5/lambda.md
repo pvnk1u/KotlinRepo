@@ -813,3 +813,38 @@ fun alphabetUsingApply() = StringBuilder().apply {
 }.toString()
 ```
 
+`apply`被声明成一个扩展函数。它的接收者变成了作为实参的`lambda`的接收者。执行`apply`的结果是`StringBuilder`，所以接下来可以调用`toString`把它转换成`String`。
+
+
+
+许多情况下`apply`都很有效，其中一种是在创建一个对象实例并需要用正确的方式初始化它的一些属性的时候。在`Java`中，这通常是通过另外一个单独的`Builder`对象来完成的；而在`Kotlin`中，可以在任意对象上使用`apply`，完全不需要任何来自定义该对象的库的特别支持。
+
+
+
+通过下面这个使用一些自定义属性创建`Android TextView`的例子，来看看这种情况下`apply`是如何使用的。
+
+```kotlin
+fun createViewWithCustomAttribute(context: Context) =
+    TextView(context).apply{
+        text = "Sample Text"
+        textSize = 20.0
+        setPadding(10,0,0,0)
+    }
+```
+
+`apply`函数允许使用紧凑的表达式函数体风格。新的`TextView`实例创建之后立即被传给了`apply`。在传给`apply`的`lambda`中，`TextView`实例变成了`lambda`接收者，这样就可以调用它的方法并设置它的属性。`lambda`执行之后，`apply`返回已经初始化过的接收者实例，它变成了`createViewWithCustomAttribute`函数的结果。
+
+
+
+`with`函数和`apply`函数是最基本和最通用的使用接收者的`lambda`的例子。更多具体的函数也可以使用这种模式。例如，使用标准库函数`buildString`进一步简化`alphabet`函数，它会负责创建`StringBuilder`并调用`toString`。`buildString`的实参是一个带接收者的`lambda`，接收者就是`StringBuilder`。
+
+```kotlin
+fun alphabet() = buildString{
+	for (letter in 'A'..'Z'){
+        append(letter)
+    }
+    append("\nNow I know the alphabet!")
+}
+```
+
+`buildString`函数优雅地完成了借助`StringBuilder`创建`String`的任务。

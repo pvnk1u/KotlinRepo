@@ -51,6 +51,18 @@ fun alphabetUsingApply() = StringBuilder().apply {
     append("\nNow I know the alphabet!")
 }.toString()
 
+
+/**
+ * 使用buildString重构
+ */
+fun alphabetUsingBuildString() = buildString {
+    for (letter in 'A'..'Z') {
+        // 通过显式地this来调用接收者值的方法
+        append(letter)
+    }
+    append("\nNow I know the alphabet!")
+}
+
 fun main(args:Array<String>){
     println(alphabet())
     /*
