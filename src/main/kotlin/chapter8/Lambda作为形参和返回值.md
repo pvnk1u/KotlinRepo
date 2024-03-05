@@ -531,3 +531,146 @@ class LockOwner(val lock:Lock){
 
 
 一般来说，参数如果被直接调用或者作为参数传递给另外一个 `inline` 函数，它是可以被内联的 。否则，编译器会禁止参数被内联并给出错误信息“ Illegal usageof inline-parameter”（非法使用内联参数）。
+
+
+
+例如，许多作用于序列的函数会返回一些类的实例 ， 这些类代表对应的序列操作并接收`lambda` 作为构造方法的参数。以下是 `Sequence.map` 函数 的定义：
+
+```kotlin
+fun <T,R> Sequence<T>.map(transform: (T) -> R): Sequence<R>{
+	return TransformingSequence(this,transform)
+}
+```
+
+`map` 函数没有直接调用作为 `transform` 参数传递进来的函数。而是将这个函数传递给一个类的构造方法，构造方法将它保存在一个属性中。为了支持这一点 ，作为 `transform` 参数传递的 `lambda` 需要被编译成标准的非内联的表示法，即一个实现了函数接口的匿名类。
+
+
+
+如果一个函数期望两个或更多 `lambda` 参数 ， 可以选择只内联其中 一些参数。这是有道理的，因为一个`lambda` 可能会包含很多代码或者以不允许内联的方式使用。接收这样的非内联`lambda` 的参数，可以用 `noinline` 修饰符来标记它：
+
+```kotlin
+inline fun foo(inlined: () -> Unit,noinline notInlined: () -> Unit){
+	//...
+}
+```
+
+
+
+## 内联集合操作
+
+来仔细看一看 `Kotlin` 标准库中操作集合的函数的性能。大部分标准库中的集合函数都带有 `lambda` 参数。相比于使用标准库函数，直接实现这些操作不是更高效吗？
+
+
+
+例如，来比较以下两个代码清单中用来过滤一个人员列表的方式：
+
+```kotlin
+data class Person(val name:String,val age:Int)
+
+val people = listOf(Person("Alice",29),Person("Bob",31))
+
+>>> println(people.filter{it.age < 30})
+[Person(name=Alice,age=29)]
+```
+
+前面的代码不用 `lambda` 表达式也可以实现，代码如下：
+
+```kotlin
+>>> val result = mutableListOf<Person>()
+>>> for (person in people){
+>>> 	if(person.age < 30) result.add(person)
+>>> }
+>>> println(result)
+[Person(name=Alice,age=29)]
+```
+
+在 `Kotlin` 中，`filter` 函数被声明为内联函数。这意味着 `filter` 函数，以及传递给它的 `lambda` 的字节码会被一起内联到 `filter` 被调用的地方。最终，第 一种实现所产生的字节码和第二种实现所产生的字节码大致是一样的。可以很安全地使用符合语言习惯的集合操作，`Kotlin` 对内联函数的支持使得不必担心性能的问题 。
+
+
+
+想象一下现在连续调用 `filter` 和 `map` 两个操作。
+
+```kotlin
+>>> println(people.filter{it.age > 30})
+			.map(Person::name)
+[Bob]
+```
+
+**这个例子使用了 一个 `lambda` 表达式和一个成员引用。再一 次，`filter` 和 `map`函数都被声明为 `inline` 函数，所以它们的函数体会被内联，因此不会产生额外的类或者对象。但是上面的代码却创建了一个中间集合来保存列表过滤的结果，由`filter` 函数生成的代码会向这个集合中添加元素，而由 `map` 函数生成的代码会读取这个集合。**
+
+
+
+**如果有大量元素需要处理，中间集合的运行开销将成为不可忽视的问题，这时可以在调用链后加上一个 `as Sequence` 调用，用序列来替代集合。但正如在前一节中看到的，用来处理序列的 `lambda` 没有被内联。每一个中间序列被表示成把`lambda` 保存在其字段中的对象，而末端操作会导致由每一个中间序列调用组成的调用链被执行。因此，即便序列上的操作是惰性的，也不应该总是试图在集合操作的调用链后加上 `asSeqence` 。这只在处理大量数据的集合时有用，小的集合可以用普通的集合操作处理。**
+
+
+
+## 决定何时将函数声明成内联
+
+现在已经知道了 `inline` 关键宇带来的好处，可能己经想要开始在代码中使用 `inline` ，试图让代码运行得更快 。事实证明，这并不是一个好主意。**使用`inline` 关键字只能提高带有 `lambda` 参数的函数的性能，其他的情况需要额外的度量和研究。**
+
+
+
+对于普通的函数调用，`JVM`己经提供了强大的内联支持。它会分析代码的执行，并在任何通过内联能够带来好处的时候将函数调用内联。这是在将字节码转换成机器代码时自动完成的。在字节码中，每一个函数的实现只会出现一次，并不需要跟`Kotlin` 的内联函数一样，每个调用的地方都拷贝一次。再说，如果函数被直接调用，调用栈会更加清晰。
+
+
+
+另 一方面，将带有 `lambda` 参数的函数内联能带来好处。首先，通过内联避免的运行时开销更明显了。不仅节约了函数调用的开销，而且节约了为 `lambda` 创建匿名类，以及创建 `lambda` 实例对象的开销。其次， `JVM` 目前并没有聪明到总是能将函数调用内联。最后 ，内联使得我们可以使用 一些不可能被普通 `lambda` 使用的特性，比如非局部返回。
+
+
+
+## 使用内联lambda管理资源
+
+`Lambda` 可以去除重复代码的一个常见模式是资源管理：先获取一个资源，完成一个操作，然后释放资源。这里 的资源可以表示很多不同的东西： 一个文件、 一个锁、一个数据库事务等。实现这个模式的标准做法是使用 `try/finally` 语句。资源在 `try` 代码块之前被获取，在 `finally` 代码块中被释放 。
+
+
+
+在本节的前面部分看到过一个例子，将 `try /finally` 的逻辑封装在一个函数中，然后将使用资源的代码作为 `lambda` 传递给这个方法 。 那个例子展示了`synchronized` 函数，它跟 `Java` 中的 `synchronized` 语句语法一样：将一个锁对象作为参数。`Kotlin` 标准库定义了另 一个叫作 `withLock` 的函数，它提供了实现同样功能的更符合语言习惯的 `API`：它是 `Lock` 接口的扩展函数 。下面来看如何使用它 ：
+
+```kotlin
+val l:Lock = ...
+l.withLock{
+	// ...
+}
+```
+
+这是`Kotlin`库中`withLock`函数的定义：
+
+```kotlin
+fun <T> Lock.withLock(action: () -> T):T{
+	lock()
+	try{
+		return action()
+	}finally{
+		unlock()
+	}
+}
+```
+
+文件是另一种可以使用这种模式的常见资源类型 。`Java 7` 甚至为这种模式引 入了特殊的语法：`try-with-resource` 语句。下面的代码清单展示了 一个使用这个语句来读取文件第一行的 `Java` 方法。
+
+```java
+/** Java */
+static String readFirstLineFromFile(String path) throws IOException{
+	try(BufferedReader br = 
+			new BufferedReader(new FileReader(path))){
+				return br.readLine();
+			}
+}
+```
+
+`Kotlin` 中并没有等价的语法，因为通过使用 一个带有函数类型参数的函数 （接收 `lambda` 参数）可以无缝地完成相同的事情 。这个 `Kotlin` 标准库中的函数叫作`use` 。现在使用 `use`函数将上面的代码重写为 `Kotlin` 代码 。
+
+```kotlin
+fun readFirstLineFromFile(path:String):String{
+	// 构建BufferedReader，调用use函数，传递一个lambda执行文件操作
+    BufferedReader(FileReader(path)).use{ br ->
+        // 从函数中返回文件的一行
+		return br.readLine()
+	}
+}
+```
+
+`use` 函数是一个扩展函数，被用来操作可关闭的资源，它接收一个 `lambda` 作为参数。这个方法调用 `lambda` 并且确保资源被关闭，无论`lambda` 正常执行还是抛出了异常 。当然，`use` 函数是内联函数 ，所以使用它并不会引发任何性能开销。
+
+
+
