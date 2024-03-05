@@ -530,3 +530,4 @@ class LockOwner(val lock:Lock){
 
 
 
+一般来说，参数如果被直接调用或者作为参数传递给另外一个 `inline` 函数，它是可以被内联的 。否则，编译器会禁止参数被内联并给出错误信息“ Illegal usageof inline-parameter”（非法使用内联参数）。
