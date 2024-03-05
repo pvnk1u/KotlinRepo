@@ -252,5 +252,155 @@ fun main() {
 
 
 
+来看另一个返回函数的函数非常实用的例子。假设正在开发一个带 `GUI` 的联系人管理应用，需要通过 `UI` 的状态来决定显示哪一个联系人。例如，可以在 `UI`上输入一个字符串，然后只显示那些姓名以这个宇符串开头的联系人： 还可以隐藏没有电话号码的联系人 。 用 `ContactListFilters` 这个类来保存这些选项的状态 。
 
+```kotlin
+class ContactListFilters{
+	var prefix: String = ""
+	var onlyWithPhoneNumber: Boolean = false
+}
+```
+
+当用户输入 `D` 来查看姓或者名以 `D` 开头的联系人，`prefix` 的值会被更新。这里省略了必须要更改的代码。
+
+
+
+为了让展示联系人列表的逻辑代码和输入过滤条件的 `UI` 代码解棋，可以定义一个函数来创建一个判断式，用它来过滤联系人列表。 判断式检查前缀 ，如果有需要也会检查电话号码是否存在。
+
+```kotlin
+data class Person(val firstName:String,
+                val lastName: String,
+                val phoneNumber: String?)
+                
+class ContactListFilters{
+    var prefix: String = ""
+    var onlyWithPhoneNumber: Boolean = false
+
+    fun getPredicate(): (Person) -> Boolean{
+        val startsWithPrefix = {p: Person ->
+            p.firstName.startsWith(prefix) || p.lastName.startsWith(prefix)
+        }
+        if (!onlyWithPhoneNumber){
+            // 返回一个函数类型的变量
+            return startsWithPrefix
+        }
+        // 从这个函数返回一个lambda
+        return {startsWithPrefix(it)
+                && it.phoneNumber != null}
+    }
+}
+
+fun main() {
+    val contacts = listOf(Person("Dmitry","Jemerov","123-4567"),
+                        Person("Svetlana","Isakova",null)
+    )
+    val contactListFilters = ContactListFilters()
+    with(contactListFilters){
+        prefix = "Dm"
+        onlyWithPhoneNumber = true
+    }
+    // 将getPredicate返回的函数作为参数传递给filter函数
+    println(contacts.filter(contactListFilters.getPredicate()))
+    // [Person(firstName=Dmitry, lastName=Jemerov, phoneNumber=123-4567)]
+}
+```
+
+**`getPredicate` 方法返回一个函数（类型）的值，这个值被传递给 `filter` 作为参数。`Kotlin` 的函数类型可以让这一切变得简单，就跟处理其他类型的值一 样，比如字符串。**
+
+
+
+## 通过lambda去除重复代码
+
+函数类型和 `lambda` 表达式一起组成了一个创建可重用代码的好工具 。许多以前只能通过复杂笨重的结构来避免的重复代码，现在可以通过使用简洁的 `lambda` 表达式被消除 。
+
+
+
+来看一个分析网站访问的例子。`SiteVisit` 类用来保存每次访问的路径、持续时间和用户的操作系统。不同的操作系统使用枚举类型来表示。
+
+```kotlin
+data class SiteVisit(val path:String,
+                    val duration: Double,
+                    val os: OS)
+
+
+enum class OS{WINDOWS,LINUX,MAC,IOS,ANDROID}
+
+val log = listOf(
+    SiteVisit("/",34.0,OS.WINDOWS),
+    SiteVisit("/",22.0,OS.MAC),
+    SiteVisit("/login",12.0,OS.WINDOWS),
+    SiteVisit("/signup",8.0,OS.IOS),
+    SiteVisit("/",16.3,OS.ANDROID),
+)
+```
+
+想象一下如果需要显示来自 `Windows` 机器的平均访问时间，可以用`average` 函数来完成这个任务。
+
+```kotlin
+val averageWindowsDuration = log
+    .filter { it.os == OS.WINDOWS }
+    .map ( SiteVisit::duration )
+    .average()
+
+fun main() {
+    println(averageWindowsDuration)
+    // 23.0
+}
+```
+
+现在假设要计算来自 `Mac` 用户的相同数据，为了避免重复，可以将平台类型抽象为一个参数。
+
+```kotlin
+fun List<SiteVisit>.averageDurationFor(os: OS) =
+    filter { it.os == os }.map ( SiteVisit::duration ).average()
+
+fun main() {
+    println(log.averageDurationFor(OS.WINDOWS))
+    // 23.0
+    println(log.averageDurationFor(OS.MAC))
+    // 22.0
+}
+```
+
+注意将这个函数作为扩展函数增强了可读性 。 如果它只在局部的上下文中有用，甚至可以将这个函数声明为局部扩展函数 。
+
+
+
+但这还远远不够。想象一下，如果对来自移动平台（目前识别出来的只有两种：`iOS` 和 `Android` ）的访问的平均时间非常有兴趣。
+
+```kotlin
+/**
+ * 用一个复杂的硬编码函数分析站点访问数据
+ */
+var averageMobileDuration = log
+    .filter { it.os in setOf(OS.IOS,OS.ANDROID) }
+    .map(SiteVisit::duration)
+    .average()
+
+fun main() {
+    println(averageMobileDuration)
+    // 12.15
+}
+```
+
+现在己经无法再用一个简单的参数表示不同的平台了 。 可能还需要使用 更加复杂的条件查询日志，比如“来自iOS 平台对注册页面的访问的平均时间是 多少？” `Lambda` 可以帮上忙。可以用函数类型将需要的条件抽取到一个参数中 。
+
+```kotlin
+/**
+ * 用一个高阶函数去除重复代码
+ */
+fun List<SiteVisit>.averageDurationFor(predicate: (SiteVisit) -> Boolean) =
+    filter(predicate).map(SiteVisit::duration).average()
+
+fun main() {
+    println(log.averageDurationFor { it.os in setOf(OS.ANDROID,OS.IOS) })
+    // 12.15
+    println(log.averageDurationFor {
+        it.os == OS.IOS && it.path == "/signup"
+    })
+    // 8.0
+}
+```
+
+函数类型可以帮助去除重复代码。如果禁不住复制粘贴了 一段代码，那么很可能这段重复代码是可以避免的。使用 `lambda`，不仅可以抽取重复的数据，也可以抽取重复的行为。
 
