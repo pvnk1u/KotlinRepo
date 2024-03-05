@@ -404,3 +404,125 @@ fun main() {
 
 函数类型可以帮助去除重复代码。如果禁不住复制粘贴了 一段代码，那么很可能这段重复代码是可以避免的。使用 `lambda`，不仅可以抽取重复的数据，也可以抽取重复的行为。
 
+
+
+# 内联函数：消除lambda带来的运行时开销
+
+`Kotlin` 中传递 `lambda` 作为函数参数的简明语法与普通的表达式（例如 `if` 和 `for` ）语法很相似。在第 5 章讨论 `with` 和 `apply` 这两个函数的时候已经见过。但是它的性能如何呢？要是定义了类似 `Java` 语句的函数但运行起来却慢得多，这难道不是出人意料的不爽吗？
+
+
+
+在第 5 章中，已经解释了 **`lambda` 表达式会被正常地编译成匿名类 。这表示每调用 一次 `lambda` 表达式，一个额外的类就会被创建 。并且如果 `lambda` 捕捉了某个变量，那么每次调用的时候都会创建一个新的对象 。 这会带来运行时的额外开销，导致使用 `lambda` 比使用 一个直接执行相同代码的函数效率更低 。**
+
+
+
+有没有可能让编译器生成跟 `Java` 语句同样高效的代码，但还是能把重复的逻辑抽取到库函数中呢？是的，`Kotiln` 的编译器能够做到。**如果使用 `inline` 修饰符标记一个函数，在函数被使用的时候编译器并不会生成函数调用的代码，而是使用函数实现的真实代码替换每一次的函数调用。**通过一个具体的例子来看看这到底是怎么运作的 。
+
+
+
+## 内联函数如何运作
+
+**当一个函数被声明为 `inline` 时，它的函数体是内联的一一换句话说，函数体会被直接替换到函数被调用的地方，而不是被正常调用。**来看一个例子以便理解生成的最终代码。
+
+
+
+下面的函数用于确保一个共享资源不会并发地被多个线程访问。函数锁住一个 `Lock` 对象，执行代码块，然后释放锁。
+
+```kotlin
+import java.util.concurrent.locks.Lock
+import java.util.concurrent.locks.ReentrantLock
+
+inline fun <T> synchronized(lock: Lock,action:() -> T):T{
+    lock.lock()
+    try {
+        return action()
+    }finally {
+        lock.unlock()
+    }
+}
+
+fun main() {
+    val l = ReentrantLock()
+    synchronized(l){
+        // ...
+    }
+}
+```
+
+调用这个函数的语法跟 `Java` 中使用 `synchronized` 语句完全一样。区别在于`Java` 的 `synchronized` 语句可以用于任何对象，而这个函数则要求传入一个 `Lock`实例。这里展示的定义只是一个示例，`Kotlin` 标准库中定义了一个可以接收任何对象作为参数的 `synchronized` 函数的版本。
+
+
+
+因为己经将 `synchronized` 函数声明为 `inline` ，所以每次调用它所生成的代码跟 `Java` 的 `synchronized` 语句是一样的。看看下面这个使用 `synchronized()`的例子：
+
+```kotlin
+fun foo(l: Lock){
+    println("Before sync")
+    synchronized(l){
+        println("Action")
+    }
+    println("After sync")
+}
+
+fun main() {
+    val l = ReentrantLock()
+    foo(l)
+    //    Before sync
+    //    Action
+    //    After sync
+}
+```
+
+下面这段代码展示的是作用相同的代码，将会被编译成同样的字节码：
+
+```kotlin
+fun _foo_(l:Lock){
+	println("Before sync")
+	l.lock()
+	try{
+		println("Action")
+	}finally{
+		l.unlock()
+	}
+	println("After sync")
+}
+```
+
+**注意 `lambda` 表达式和 `synchronized` 函数的实现都被内联了。由`lambda` 生成 的字节码成为了函数调用者定义的一部分，而不是被包含在一个实现了函数接口的匿名类中。**
+
+
+
+注意，在调用内联函数的时候也可以传递函数类型的变量作为参数：
+
+```kotlin
+class LockOwner(val lock:Lock){
+	fun runUnderLock(body: () -> Unit){
+		// 传递一个函数类型的变量作为参数，而不是一个lambda
+		synchronized(lock,body)
+	}
+}
+```
+
+在这种情况下 ，`lambda` 的代码在内联函数被调用点是不可用的，因此并不会被内联。只有 `synchronized` 的函数体被内联了，`lambda` 才会被正常调用 。`runUnderLock` 函数会被编译成类似于以下函数的字节码：
+
+```
+class LockOwner(val lock:Lock){
+	// 这个函数类似于真正的runUnderLock被编译成的字节码
+	fun _runUnderLock_(body: () -> Unit){
+		lock.lock()
+		try{
+			// body没有被内联，因为在调用的地方还没有lambda
+			body()
+		}finally{
+			lock.unlock()
+		}
+	}
+}
+```
+
+如果在两个不同的位置使用同一个内联函数，但是用的是不同的 `lambda` ，那么内联函数会在每一个被调用的位置被分别内联。内联函数的代码会被拷贝到使用它的两个不同位置，并把不同的 `lambda` 替换到其中。
+
+
+
+## 内联函数的限制
+
