@@ -3,7 +3,7 @@ package chapter3.strings
 import java.lang.StringBuilder
 
 fun <T> Collection<T>.joinToString(separator: String = ",",
-                                   prefix: String = ",",
+                                   prefix: String = "",
                                    postfix:String = ""):String{
     val result = StringBuilder(prefix)
 

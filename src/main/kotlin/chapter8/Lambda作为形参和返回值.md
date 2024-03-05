@@ -138,5 +138,119 @@ fun <T> Collection<T>.joinToString(
 
 这个实现很灵活，但是它并没有让你控制转换的关键点：集合中的元素是如何转换为字符串的。代码中使用了 `StringBuilder.append(o:Any?)`，它总是使用 `toString` 方法将对象转换为字符串。在大多数情况下这样就可以了，但并不总是这样。现在己经知道可以传递一个 `lambda` 去指定如何将对象转换为字符串。但是要求所有调用者都传递 `lambda` 是比较烦人的事情，因为大部分调用者使用默认的行为就可以了。为了解决这个问题，可以定义一个函数类型的参数井用 一个`lambda` 作为它的默认值 。
 
+```kotlin
+fun <T> Collection<T>.joinToStringWithLambda(
+    separator:String = ",",
+    prefix:String = "",
+    postfix:String = "",
+    transform: (T) -> String = {it.toString()}
+):String{
+    val result = StringBuilder(prefix)
+
+    for ((index,element) in this.withIndex()){
+        if (index > 0) result.append(separator)
+        result.append(transform(element))
+    }
+
+    result.append(postfix)
+    return result.toString()
+}
+
+fun main() {
+    val letters = listOf("Alpha","Beta")
+    println(letters.joinToString())
+    // Alpha,Beta
+    println(letters.joinToStringWithLambda { it.lowercase() })
+    // alpha,beta
+    println(letters.joinToString(separator = "! ", postfix = "! ", transform = {it.uppercase()}))
+    // ALPHA! BETA!
+}
+```
+
+注意这是一个泛型函数： 它有一个类型参数 `T` 表示集合中的元素的类型。`Lambda transform` 将接收这个类型的参数。
+
+
+
+声明函数类型的默认值并不需要特殊的语法一一只需要把 `lambda` 作为值放在`=`号后面。上面的例子展示了不同的函数调用方式： 省略整个 `lambda` （使用默认的`toString()`做转换），在括号以外传递 `lambda`，或者以命名参数形式传递。
+
+
+
+**另一种选择是声明一个参数为可空的函数类型。注意这里不能直接调用作为参数传递进来的函数： `Kotlin` 会因为检测到潜在的空指针异常而导致编译失败。一种可边的办法是显式地检查 `null`:**
+
+```kotlin
+fun foo(callback: (()-> Unit)?){
+	// ...
+	if(callback != null){
+		callback()
+	}
+}
+```
+
+**还有一个更简单的版本，它利用了这样一个事实，函数类型是一个包含`invoke` 方法的接口的具体实现。作为一个普通方法 ，`invoke` 可以通过安全调用语法被调用：`callback?.invoke()`。**
+
+
+
+下面介绍使用这项技术重写 `joinToString` 函数。
+
+```kotlin
+/**
+ * 可空Lambda作为函数形参
+ */
+fun <T> Collection<T>.joinToStringWithNullableLambda(
+    separator:String = ",",
+    prefix:String = "",
+    postfix:String = "",
+    transform: ((T) -> String)? = null    // 声明一个函数类型的可空参数
+):String{
+    val result = StringBuilder(prefix)
+
+    for ((index,element) in this.withIndex()){
+        if (index > 0) result.append(separator)
+        // 使用安全调用语法调用函数
+        val str = transform?.invoke(element)
+            ?: element.toString()       // 使用Elvis运算符处理回调没有被指定的情况
+        result.append(str)
+    }
+
+    result.append(postfix)
+    return result.toString()
+}
+
+```
+
+
+
+## 返回函数的函数
+
+从函数中返回另一个函数并没有将函数作为参数传递那么常用，但它仍然非常有用。想象一下程序中的一段逻辑可能会因为程序的状态或者其他条件而产生变化——比如说，运输费用的计算依赖于选择的运输方式 。可以定义一个函数用来选择恰当的逻辑变体并将它作为另一个函数返回。以下是具体的代码。
+
+```kotlin
+enum class Delivery{STANDARD,EXPEDITED}
+
+class Order(val itemCount:Int)
+
+fun getShippingCostCalculator(
+    delivery: Delivery):(Order) ->Double{         // 声明一个返回函数的函数
+        if (delivery == Delivery.EXPEDITED){
+            return {order -> 6 + 2.1 * order.itemCount }    // 返回lambda
+        }
+        return {order -> 1.2 *order.itemCount }            // 返回lambda
+}
+
+
+fun main() {
+    // 将返回的函数保存在变量中
+    val calculator =
+        getShippingCostCalculator(Delivery.EXPEDITED)
+    // 调用返回的函数
+    println("Shipping costs ${calculator(Order(3))}")
+    // Shipping costs 12.3
+}
+```
+
+**声明一个返回另一个函数的函数，需要指定一个函数类型作为返回类型。在代码清单，`getShippingCostCalculator` 返回了 一个函数 ，这个函数以 `Order` 作为参数并返回 一个 `Double` 类型的值。要返回一个函数，需要写一个`return` 表达式，跟上一个 `lambda`、一个成员引用，或者其他的函数类型的表达式，比如一个（函数类型的）局部变量。**
+
+
+
 
 
