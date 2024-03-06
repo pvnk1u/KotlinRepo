@@ -674,3 +674,75 @@ fun readFirstLineFromFile(path:String):String{
 
 
 
+# 高阶函数中的控制流
+
+当开始使用`lambda` 去替换像循环这样的命令式代码结构时 ，很快便会遇到`return` 表达式的问题。把一个 `return` 语句放在循环的中间是很简单的事情。但是如果将循环转换成一个类似 `filter` 的函数呢？在这种情况下 `return` 会如何工作？来看一些例子 。
+
+
+
+## lambda中的返回语句：从一个封闭的函数返回
+
+来比较两种不同的遍历集合的方法。在下面的代码清单中，很明显如果一个人的名字是 `Alice`，就应该从函数 `lookForAlice` 返回。
+
+```kotlin
+data class PersonObj(val name:String,val age: Int)
+
+val people = listOf(PersonObj("Alice",29), PersonObj("Bob",31))
+
+fun lookForAlice(people: List<PersonObj>){
+    for (person in people){
+        if (person.name == "Alice"){
+            println("Found!")
+            return
+        }
+    }
+    println("Alice is not found!")
+}
+
+fun main() {
+    lookForAlice(people)
+    // Found!
+}
+```
+
+使用`forEach`迭代重写这段代码安全吗？ `return` 语句还会是一样的表现吗？
+
+
+
+是的，正如以下的代码所展示的，使用 `forEach` 是安全的 。
+
+```kotlin
+fun lookForAliceWithForEach(people: List<PersonObj>){
+    people.forEach {
+        if (it.name == "Alice"){
+            println("Found!")
+            return
+        }
+    }
+    println("Alice is not found!")
+}
+
+fun main() {
+    lookForAliceWithForEach(people)
+    // Found!
+}
+```
+
+**如果在 `lambda` 中使用 `return` 关键字，它会从调用 `lambda` 的函数中返回，并不只是从 `lambda` 中返回 。这样的 `return` 语句叫作非局部返回，因为它从一个比包含 `return` 的代码块更大的代码块中返回了 。**
+
+
+
+为了理解这条规则背后的逻辑，想想 `Java` 函数中在 `for` 循环或者`synchronized` 代码块中使用 `return` 关键字 。 显然会从函数中返回，而不是从循环或者代码块中返回。当使用以 `lambda` 作为参数的函数的时候 `Kotlin` 保留了同样的行为 。
+
+
+
+**需要注意的是，只有在以 `lambda` 作为参数的函数是内联函数的时候才能从更外层的函数返回。在上面的代码中，`forEach`的函数体和 `lambda` 的函数体一起被内联了，所以在编译的时候能很容易做到从包含它的函数中返回 。 在一个非内联函数的 `lambda` 中使用 `return` 表达式是不允许的。一个非内联函数可以把传给它的 `lambda` 保存在变量中，以便在函数返回以后可以继续使用，这个时候 `lambda` 想要去影响函数的返回己经太晚了。**
+
+
+
+## 从lambda返回：使用标签返回
+
+也可以在 `lambda` 表达式中使用局部返回。`lambda` 中的局部返回跟 `for` 循环中的 `break` 表达式相似。它会终止 `lambda` 的执行，并接着从调用 `lambda` 的代码处执行 。 要区分局部返回和非局部返回 ，要用到标签 。 想从一个 `lambda` 表达式处返回你可以标记它，然后在 `return` 关键字后面引用这个标签 。
+
+
+
