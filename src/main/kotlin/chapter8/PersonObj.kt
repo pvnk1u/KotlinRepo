@@ -24,7 +24,40 @@ fun lookForAliceWithForEach(people: List<PersonObj>){
     println("Alice is not found!")
 }
 
+/**
+ * 局部返回
+ */
+fun lookForAliceLocalReturn(people: List<PersonObj>){
+    people.forEach label@{
+        if (it.name == "Alice") return@label
+    }
+    println("Alice might be somewhere")
+}
+
+/**
+ * 使用forEach作为标签局部返回
+ */
+fun lookForAliceLocalReturn2(people: List<PersonObj>){
+    people.forEach {
+        if (it.name == "Alice") return@forEach
+    }
+    println("Alice might be somewhere")
+}
+
+/**
+ * 在匿名函数中使用return
+ */
+fun lookForAliceWithAnonymousFunction(people: List<PersonObj>){
+    people.forEach(fun (person){
+        if (person.name == "Alice") return
+        println("${person.name} is not Alice")
+    })
+}
+
 fun main() {
     lookForAliceWithForEach(people)
     // Found!
+
+    lookForAliceLocalReturn(people)
+    // Alice might be somewhere
 }
