@@ -6,5 +6,5 @@ fun test(i: Int){
 
     fun f(s:String){ /** **/}
     // 不能编译，因为Int不是String的子类型
-    f(i)
+    // f(i)
 }
